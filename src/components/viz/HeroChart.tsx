@@ -3,6 +3,7 @@ import {
   Line,
   LineChart,
   ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -24,8 +25,8 @@ const percent = (value: number | null): string =>
 
 const referenceColor = (props: HeroChartProps): string =>
   props.hero.narrativeMode === "fails-instructively"
-    ? props.palette.stressedReferenceColor
-    : props.palette.heroRoleColors["reference-method"];
+    ? props.palette.heroRoleColors["reference-fails-instructively"]
+    : props.palette.heroRoleColors["reference-validates"];
 
 const toChartData = ({
   groundTruthSeries,
@@ -56,6 +57,7 @@ export const HeroChart = (props: HeroChartProps): JSX.Element => {
   const naiveCi = ciBounds(naiveResult.confidenceInterval);
   const referenceCi = ciBounds(referenceResult.confidenceInterval);
   const reference = referenceColor(props);
+  const truthAverage = dataset.groundTruth.comparisonEstimand * 100;
   const referenceName =
     methodDisplayNames[hero.referenceMethodId] ?? hero.referenceMethodId;
   const naiveName = methodDisplayNames[hero.naiveMethodId] ?? hero.naiveMethodId;
@@ -105,10 +107,16 @@ export const HeroChart = (props: HeroChartProps): JSX.Element => {
               width={48}
             />
             <Tooltip
-              formatter={(value: number | string, name: string) => [
-                typeof value === "number" ? `${value.toFixed(1)}%` : value,
-                name,
-              ]}
+              formatter={(value: number | string | Array<number | string>, name: string) => {
+                const displayValue = Array.isArray(value) ? value[0] : value;
+
+                return [
+                  typeof displayValue === "number"
+                    ? `${displayValue.toFixed(1)}%`
+                    : displayValue,
+                  name,
+                ];
+              }}
               labelFormatter={(label: number) => `Week ${label}`}
               contentStyle={{
                 borderColor: palette.ui.border,
@@ -135,13 +143,19 @@ export const HeroChart = (props: HeroChartProps): JSX.Element => {
               />
             )}
             <Line
-              name="Ground truth"
+              name="True weekly effect"
               type="monotone"
               dataKey="truth"
               stroke={palette.heroRoleColors["ground-truth"]}
               strokeWidth={3}
               dot={false}
               isAnimationActive={false}
+            />
+            <ReferenceLine
+              y={truthAverage}
+              stroke={palette.heroRoleColors["ground-truth"]}
+              strokeDasharray="4 4"
+              strokeOpacity={0.55}
             />
             <Line
               name={naiveName}
@@ -170,9 +184,9 @@ export const HeroChart = (props: HeroChartProps): JSX.Element => {
 
       <div className="mt-4 grid gap-3 border-t border-lunar-border pt-4 sm:grid-cols-3">
         <Readout
-          label="Ground truth"
+          label="Average post-period lift"
           value={percent(dataset.groundTruth.comparisonEstimand)}
-          detail="known synthetic estimand"
+          detail="ground-truth tau_comp"
           color={palette.heroRoleColors["ground-truth"]}
         />
         <Readout

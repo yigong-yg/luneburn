@@ -28,8 +28,8 @@ export const ExplanationPanel = ({
             Current Read
           </h2>
           <p className="mt-1 text-sm leading-6 text-lunar-muted">
-            Lift {formatPercent(params.trueEffect)}, channel correlation{" "}
-            {formatPercent(params.crossChannelCorrelation)}, noise{" "}
+            Peak weekly lift {formatPercent(params.trueEffect)}, channel
+            correlation {formatPercent(params.crossChannelCorrelation)}, noise{" "}
             {params.noiseStd.toFixed(1)}x.
           </p>
         </div>
