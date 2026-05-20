@@ -1,15 +1,5 @@
 import type { ControlPanelProps } from "../../types/ui";
-import type { DGPParams, ParamSchemaField } from "../../lib/dgp/types";
 import { SliderControl } from "./SliderControl";
-
-const entriesFromSchema = (
-  paramSchema: ControlPanelProps["paramSchema"],
-): ReadonlyArray<readonly [keyof DGPParams, ParamSchemaField]> => {
-  // Object.entries drops the keyof DGPParams relationship; the schema type keeps it at creation sites.
-  return Object.entries(paramSchema) as ReadonlyArray<
-    readonly [keyof DGPParams, ParamSchemaField]
-  >;
-};
 
 export const ControlPanel = ({
   paramSchema,
@@ -33,7 +23,7 @@ export const ControlPanel = ({
     </div>
 
     <div className="mt-4 space-y-3">
-      {entriesFromSchema(paramSchema).map(([key, field]) => (
+      {paramSchema.map(([key, field]) => (
         <SliderControl
           key={key}
           id={key}

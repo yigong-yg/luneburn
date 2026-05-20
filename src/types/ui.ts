@@ -8,7 +8,8 @@ export type HeroNarrativeMode = "validates" | "fails-instructively";
 export type HeroSeriesRole =
   | "ground-truth"
   | "naive-baseline"
-  | "reference-method";
+  | "reference-validates"
+  | "reference-fails-instructively";
 
 export interface HeroScenarioConfig {
   readonly naiveMethodId: string;
@@ -34,7 +35,6 @@ export interface ChartPalette {
   readonly kind: ChartPaletteKind;
   readonly ui: UiPalette;
   readonly heroRoleColors: Readonly<Record<HeroSeriesRole, string>>;
-  readonly stressedReferenceColor: string;
   readonly methodColors: Readonly<Record<string, string>>;
 }
 

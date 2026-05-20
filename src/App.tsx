@@ -16,6 +16,7 @@ export const App = (): JSX.Element => {
   const reset = useAppStore((state) => state.reset);
 
   const dgp = getDgp(scenarioId);
+  // TODO(Weekend 1): replace Session 0 stubs with useDataset + useEstimations hooks.
   const stubState = useMemo(
     () => buildScenarioStateFromParams(scenarioId, params, seed),
     [params, scenarioId, seed],
