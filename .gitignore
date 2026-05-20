@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# Node / Vite
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+.codex-vite.*.log
+.codex-screenshots/
+
+docs
