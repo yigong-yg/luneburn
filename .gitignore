@@ -216,6 +216,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local agent/editor state and generated review artifacts
+.claude/
+.codex/
+.cursor/
+.continue/
+.windsurf/
+.aider*
+
+# Local secrets and credentials
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
 # Node / Vite
 node_modules/
 dist/

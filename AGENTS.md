@@ -15,6 +15,28 @@ Before changing code or reviewing code, read:
 
 The `docs/` directory is intentionally gitignored, but it is authoritative local planning context. If the docs are missing in your environment, say so and proceed conservatively from this file.
 
+## P0 Privacy And Local-State Hygiene
+
+This is the first gate for every agent, before implementation or review. Do not commit local agent state, credentials, private machine paths, local usernames, browser artifacts, or private prompt/config files. Treat this as P0 because Luneburn is public from day one.
+
+Forbidden in git:
+
+- Local agent/editor directories such as `.claude/`, `.codex/`, `.cursor/`, `.continue/`, `.windsurf/`, and `.aider*`.
+- Local secrets or credentials: `.env*` except committed examples, API keys, auth tokens, passwords, private keys, certificates, SSH keys, and service account material.
+- Machine-local absolute paths such as `C:\Users\...`, `/Users/...`, or `/home/...`.
+- Local browser/test artifacts, screenshots, logs, caches, or generated review output.
+- Personal contact data beyond intentional public authorship metadata already present in the license or public profile materials.
+
+Before staging or committing, run a focused hygiene check:
+
+```bash
+git status --short
+git grep -n -I -E "(gh[pousr]_|github_pat_|sk-|OPENAI_API_KEY|api[_-]?key|secret|token|password|passwd|private[_-]?key|-----BEGIN)" -- . ':!package-lock.json'
+git grep -n -I -E "(C:\\\\Users\\\\|/Users/|/home/)" -- . ':!package-lock.json'
+```
+
+If a sensitive file was ever committed, remove it from tracking immediately, add a durable ignore rule, and tell Yi whether public history needs rotation or rewrite. Never bury this in a feature commit.
+
 ## Core Rules
 
 - Keep scope tight. No backend, no auth, no database, no user-uploaded data, no server-side state.
@@ -204,4 +226,3 @@ Preferred review cadence:
 6. README screenshot + 90-second tour + V0 deploy.
 
 Each slice should be independently reviewable and leave the app runnable.
-
