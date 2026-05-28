@@ -106,7 +106,10 @@ interface StubResultsInput {
   readonly naiveEstimate: number;
   readonly referenceEstimate: number;
   readonly referenceMethodId: string;
-  readonly referenceStatus: EstimationResult["status"];
+  // V0 stub methods always return an estimate; "invalid" (with its null
+  // estimate fields) is produced only by the real estimators in Session B.
+  // Narrowing here makes an invalid result with non-null fields unrepresentable.
+  readonly referenceStatus: "ok" | "warning";
   readonly referenceFlags: ReadonlyArray<string>;
   readonly referenceMessage: string | null;
   readonly headline: string;
@@ -170,9 +173,7 @@ export const buildStubResults = ({
     message: referenceMessage,
     pointEstimate: referenceEstimate,
     confidenceInterval: referenceCi,
-    coverage95:
-      referenceStatus !== "invalid" &&
-      includesTruth(referenceCi, comparisonEstimand),
+    coverage95: includesTruth(referenceCi, comparisonEstimand),
     perPeriodEstimate: horizontalSeries(referenceEstimate, nPeriods),
     diagnostics: {
       stubState: "session-0",
