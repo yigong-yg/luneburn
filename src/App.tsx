@@ -3,7 +3,8 @@ import { ControlPanel } from "./components/controls/ControlPanel";
 import { ScenarioSelector } from "./components/controls/ScenarioSelector";
 import { ExplanationPanel } from "./components/narrative/ExplanationPanel";
 import { HeroChart } from "./components/viz/HeroChart";
-import { buildScenarioStateFromParams, dgps, getDgp } from "./lib/dgp";
+import { buildScenarioResults, dgps, getDgp } from "./lib/dgp";
+import { useDataset } from "./hooks/useDataset";
 import { chartPalette } from "./lib/visual/palette";
 import { useAppStore } from "./state/store";
 
@@ -16,15 +17,16 @@ export const App = (): JSX.Element => {
   const reset = useAppStore((state) => state.reset);
 
   const dgp = getDgp(scenarioId);
-  // TODO(Weekend 1): replace Session 0 stubs with useDataset + useEstimations hooks.
-  const stubState = useMemo(
-    () => buildScenarioStateFromParams(scenarioId, params, seed),
-    [params, scenarioId, seed],
+  const dataset = useDataset(scenarioId, params, seed);
+  // TODO(Session B): replace stub results with a useEstimations hook (real last-touch + DiD).
+  const { results, headline } = useMemo(
+    () => buildScenarioResults(scenarioId, dataset, params),
+    [scenarioId, dataset, params],
   );
-  const naiveResult = stubState.results.find(
+  const naiveResult = results.find(
     (result) => result.methodId === dgp.hero.naiveMethodId,
   );
-  const referenceResult = stubState.results.find(
+  const referenceResult = results.find(
     (result) => result.methodId === dgp.hero.referenceMethodId,
   );
 
@@ -49,14 +51,14 @@ export const App = (): JSX.Element => {
             </h1>
           </div>
           <p className="max-w-xl text-sm leading-6 text-lunar-muted md:text-right">
-            {stubState.headline}
+            {headline}
           </p>
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <HeroChart
-            dataset={stubState.dataset}
-            groundTruthSeries={stubState.dataset.groundTruth.perPeriodEffect}
+            dataset={dataset}
+            groundTruthSeries={dataset.groundTruth.perPeriodEffect}
             naiveResult={naiveResult}
             referenceResult={referenceResult}
             hero={dgp.hero}
@@ -84,7 +86,7 @@ export const App = (): JSX.Element => {
               scenarioId={scenarioId}
               hero={dgp.hero}
               params={params}
-              results={stubState.results}
+              results={results}
             />
           </aside>
         </div>

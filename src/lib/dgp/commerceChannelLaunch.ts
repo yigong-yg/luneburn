@@ -1,8 +1,15 @@
-import type { DGP, DGPParams, ParamSchema } from "./types";
-import { buildStubState, type StubScenarioState } from "./stubHelpers";
+import type { Dataset, DGP, DGPParams, ParamSchema } from "./types";
+import {
+  buildStubDataset,
+  buildStubResults,
+  type StubScenarioResults,
+} from "./stubHelpers";
 
 const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
 const formatNoise = (value: number): string => `${value.toFixed(1)}x`;
+
+const COMMERCE_PERIODS = 104;
+const COMMERCE_LAUNCH_PERIOD = 60;
 
 export const commerceParamSchema: ParamSchema = [
   [
@@ -51,41 +58,47 @@ export const commerceDefaults: DGPParams = {
   structuralBreakIntensity: 0.26,
 };
 
-export const buildCommerceStubState = (
-  params: DGPParams,
-  seed: number,
-): StubScenarioState => {
-  const nPeriods = 104;
-  const launchPeriod = 60;
-  const truthSeries = Array.from({ length: nPeriods }, (_unused, period) => {
-    if (period < launchPeriod) {
+// Commerce Launch's real DGP is deferred (Weekend 5); the V0 hero still needs a
+// plausible dataset + warning narrative, so it remains a stub for now.
+const commerceTruthSeries = (params: DGPParams): number[] =>
+  Array.from({ length: COMMERCE_PERIODS }, (_unused, period) => {
+    if (period < COMMERCE_LAUNCH_PERIOD) {
       return 0;
     }
 
-    const ramp = 1 - Math.exp(-(period - launchPeriod + 1) / 8);
+    const ramp = 1 - Math.exp(-(period - COMMERCE_LAUNCH_PERIOD + 1) / 8);
     const fatigue = 1 - Math.max(0, period - 84) * 0.006;
     return Math.max(0, params.trueEffect * ramp * fatigue);
   });
 
-  const postSeries = truthSeries.slice(launchPeriod);
-  const meanTruth =
-    postSeries.reduce((sum, value) => sum + value, 0) / postSeries.length;
-  const structuralStress =
-    0.55 + params.crossChannelCorrelation * 0.8 + params.noiseStd * 0.05;
-  const naiveEstimate = meanTruth * (1.45 + params.crossChannelCorrelation);
-  const referenceEstimate = meanTruth * (1 + structuralStress);
-
-  return buildStubState({
+export const generateCommerce = (params: DGPParams, seed: number): Dataset =>
+  buildStubDataset({
     scenarioId: "commerce-channel-launch",
     params,
     seed,
-    nPeriods,
+    nPeriods: COMMERCE_PERIODS,
     nUnits: 50,
     nChannels: 4,
-    postPeriodStart: launchPeriod,
+    postPeriodStart: COMMERCE_LAUNCH_PERIOD,
     treatmentAt: (unitIndex, period) =>
-      unitIndex < 25 && period >= launchPeriod ? 1 : 0,
-    truthSeries,
+      unitIndex < 25 && period >= COMMERCE_LAUNCH_PERIOD ? 1 : 0,
+    truthSeries: commerceTruthSeries(params),
+  });
+
+export const buildCommerceStubResults = (
+  dataset: Dataset,
+  params: DGPParams,
+): StubScenarioResults => {
+  const tau = dataset.groundTruth.comparisonEstimand;
+  const structuralStress =
+    0.55 + params.crossChannelCorrelation * 0.8 + params.noiseStd * 0.05;
+  const naiveEstimate = tau * (1.45 + params.crossChannelCorrelation);
+  const referenceEstimate = tau * (1 + structuralStress);
+
+  return buildStubResults({
+    comparisonEstimand: tau,
+    nPeriods: dataset.nPeriods,
+    crossChannelCorrelation: params.crossChannelCorrelation,
     naiveEstimate,
     referenceEstimate,
     referenceMethodId: "synthetic-control",
@@ -111,5 +124,5 @@ export const commerceChannelLaunchDgp: DGP = {
     primarySliderKey: "crossChannelCorrelation",
     headlineTemplateId: "commerce-launch-fails-instructively",
   },
-  generate: (params, seed) => buildCommerceStubState(params, seed).dataset,
+  generate: generateCommerce,
 };

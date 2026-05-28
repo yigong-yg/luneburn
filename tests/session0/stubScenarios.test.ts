@@ -151,6 +151,25 @@ describe("Session 0 stub scenarios", () => {
     }
   });
 
+  it("serves the real generated dataset for the Super Bowl scenario state", () => {
+    const dgp = getDgp("super-bowl");
+    const state = buildScenarioStateFromParams(dgp.id, dgp.defaultParams, 42);
+    const direct = dgp.generate(dgp.defaultParams, 42);
+
+    expect(JSON.stringify(state.dataset)).toEqual(JSON.stringify(direct));
+  });
+
+  it("keeps Super Bowl stub estimates coherent with the real comparison estimand", () => {
+    const dgp = getDgp("super-bowl");
+    const state = buildScenarioStateFromParams(dgp.id, dgp.defaultParams, 42);
+    const tau = state.dataset.groundTruth.comparisonEstimand;
+    const lastTouch = state.results.find((r) => r.methodId === "last-touch");
+    const did = state.results.find((r) => r.methodId === "did-twfe");
+
+    expect(lastTouch?.pointEstimate ?? 0).toBeGreaterThan(tau);
+    expect(did?.pointEstimate ?? Number.NaN).toBeCloseTo(tau, 1);
+  });
+
   it("computes coverage95 from each confidence interval containing tau_comp", () => {
     for (const scenarioId of ["super-bowl", "commerce-channel-launch"]) {
       const dgp = getDgp(scenarioId);
