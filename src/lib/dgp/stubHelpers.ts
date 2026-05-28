@@ -7,7 +7,14 @@ export interface StubScenarioState {
   readonly headline: string;
 }
 
-interface StubStateInput {
+export interface StubScenarioResults {
+  readonly results: ReadonlyArray<EstimationResult>;
+  readonly headline: string;
+}
+
+// --- Fake dataset (used only by scenarios whose real DGP is not yet built) ----
+
+interface StubDatasetInput {
   readonly scenarioId: string;
   readonly params: DGPParams;
   readonly seed: number;
@@ -17,13 +24,6 @@ interface StubStateInput {
   readonly postPeriodStart: number;
   readonly treatmentAt: (unitIndex: number, period: number) => number;
   readonly truthSeries: ReadonlyArray<number>;
-  readonly naiveEstimate: number;
-  readonly referenceEstimate: number;
-  readonly referenceMethodId: string;
-  readonly referenceStatus: EstimationResult["status"];
-  readonly referenceFlags: ReadonlyArray<string>;
-  readonly referenceMessage: string | null;
-  readonly headline: string;
 }
 
 const makeCounterfactuals = (
@@ -38,7 +38,7 @@ const makeUnits = (
   nUnits: number,
   nPeriods: number,
   nChannels: number,
-  treatmentAt: StubStateInput["treatmentAt"],
+  treatmentAt: StubDatasetInput["treatmentAt"],
 ): ReadonlyArray<Unit> =>
   Array.from({ length: nUnits }, (_unused, unitIndex) => {
     const treatment = Array.from({ length: nPeriods }, (_none, period) =>
@@ -62,19 +62,7 @@ const makeUnits = (
     };
   });
 
-const horizontalSeries = (
-  value: number,
-  nPeriods: number,
-): ReadonlyArray<number> => Array.from({ length: nPeriods }, () => value);
-
-const includesTruth = (
-  confidenceInterval: readonly [number, number],
-  comparisonEstimand: number,
-): boolean =>
-  confidenceInterval[0] <= comparisonEstimand &&
-  comparisonEstimand <= confidenceInterval[1];
-
-export const buildStubState = ({
+export const buildStubDataset = ({
   scenarioId,
   params,
   seed,
@@ -84,14 +72,7 @@ export const buildStubState = ({
   postPeriodStart,
   treatmentAt,
   truthSeries,
-  naiveEstimate,
-  referenceEstimate,
-  referenceMethodId,
-  referenceStatus,
-  referenceFlags,
-  referenceMessage,
-  headline,
-}: StubStateInput): StubScenarioState => {
+}: StubDatasetInput): Dataset => {
   const postSeries = truthSeries.slice(postPeriodStart);
   const comparisonEstimand =
     postSeries.reduce((sum, value) => sum + value, 0) / postSeries.length;
@@ -104,7 +85,7 @@ export const buildStubState = ({
     counterfactualOutcomes: makeCounterfactuals(nUnits, nPeriods),
   };
 
-  const dataset: Dataset = {
+  return {
     scenarioId,
     params,
     seed,
@@ -114,12 +95,58 @@ export const buildStubState = ({
     units: makeUnits(nUnits, nPeriods, nChannels, treatmentAt),
     groundTruth,
   };
+};
 
-  const lastTouchCi = [naiveEstimate - 0.035, naiveEstimate + 0.035] as const;
-  const referenceCi = [
-    referenceEstimate - 0.025,
-    referenceEstimate + 0.025,
-  ] as const;
+// --- Stub estimator results (derived from the dataset's real ground truth) ---
+
+interface StubResultsInput {
+  readonly comparisonEstimand: number;
+  readonly nPeriods: number;
+  readonly crossChannelCorrelation: number;
+  readonly naiveEstimate: number;
+  readonly referenceEstimate: number;
+  readonly referenceMethodId: string;
+  readonly referenceStatus: EstimationResult["status"];
+  readonly referenceFlags: ReadonlyArray<string>;
+  readonly referenceMessage: string | null;
+  readonly headline: string;
+}
+
+const horizontalSeries = (
+  value: number,
+  nPeriods: number,
+): ReadonlyArray<number> => Array.from({ length: nPeriods }, () => value);
+
+const includesTruth = (
+  confidenceInterval: readonly [number, number],
+  comparisonEstimand: number,
+): boolean =>
+  confidenceInterval[0] <= comparisonEstimand &&
+  comparisonEstimand <= confidenceInterval[1];
+
+const ciAround = (
+  estimate: number,
+  fraction: number,
+  floor: number,
+): readonly [number, number] => {
+  const half = Math.max(floor, Math.abs(estimate) * fraction);
+  return [estimate - half, estimate + half];
+};
+
+export const buildStubResults = ({
+  comparisonEstimand,
+  nPeriods,
+  crossChannelCorrelation,
+  naiveEstimate,
+  referenceEstimate,
+  referenceMethodId,
+  referenceStatus,
+  referenceFlags,
+  referenceMessage,
+  headline,
+}: StubResultsInput): StubScenarioResults => {
+  const lastTouchCi = ciAround(naiveEstimate, 0.18, 0.005);
+  const referenceCi = ciAround(referenceEstimate, 0.15, 0.004);
 
   const lastTouchResult: EstimationResult = {
     methodId: "last-touch",
@@ -131,7 +158,7 @@ export const buildStubState = ({
     coverage95: includesTruth(lastTouchCi, comparisonEstimand),
     perPeriodEstimate: horizontalSeries(naiveEstimate, nPeriods),
     diagnostics: {
-      crossChannelCorrelation: params.crossChannelCorrelation,
+      crossChannelCorrelation,
     },
     runtimeMs: 0,
   };
@@ -154,19 +181,7 @@ export const buildStubState = ({
   };
 
   return {
-    dataset,
     results: [lastTouchResult, referenceResult],
     headline,
   };
 };
-
-export const smoothPulse = (
-  length: number,
-  center: number,
-  width: number,
-  amplitude: number,
-): ReadonlyArray<number> =>
-  Array.from({ length }, (_unused, period) => {
-    const distance = (period - center) / width;
-    return amplitude * Math.exp(-0.5 * distance * distance);
-  });
