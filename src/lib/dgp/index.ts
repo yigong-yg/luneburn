@@ -1,10 +1,10 @@
-import type { DGP, DGPParams } from "./types";
+import type { Dataset, DGP, DGPParams } from "./types";
 import {
-  buildCommerceStubState,
+  buildCommerceStubResults,
   commerceChannelLaunchDgp,
 } from "./commerceChannelLaunch";
-import { buildSuperBowlStubState, superBowlDgp } from "./superBowl";
-import type { StubScenarioState } from "./stubHelpers";
+import { buildSuperBowlStubResults, superBowlDgp } from "./superBowl";
+import type { StubScenarioResults, StubScenarioState } from "./stubHelpers";
 
 export const dgps: ReadonlyArray<DGP> = [
   superBowlDgp,
@@ -18,25 +18,25 @@ export const dgpById: ReadonlyMap<string, DGP> = new Map(
 export const getDgp = (scenarioId: string): DGP =>
   dgpById.get(scenarioId) ?? superBowlDgp;
 
-const stubBuilders: ReadonlyMap<
+const stubResultBuilders: ReadonlyMap<
   string,
-  (params: DGPParams, seed: number) => StubScenarioState
+  (dataset: Dataset, params: DGPParams) => StubScenarioResults
 > = new Map([
-  [superBowlDgp.id, buildSuperBowlStubState],
-  [commerceChannelLaunchDgp.id, buildCommerceStubState],
+  [superBowlDgp.id, buildSuperBowlStubResults],
+  [commerceChannelLaunchDgp.id, buildCommerceStubResults],
 ]);
 
-const getStubBuilder = (
+// Session A: datasets are real (Super Bowl) or stubbed (Commerce, deferred), but
+// estimator *results* remain stubs until Session B. They derive from the real
+// dataset's ground truth so the hero chart stays coherent.
+export const buildScenarioResults = (
   scenarioId: string,
-): ((params: DGPParams, seed: number) => StubScenarioState) =>
-  stubBuilders.get(scenarioId) ?? buildSuperBowlStubState;
-
-export const buildScenarioState = (
-  scenarioId: string,
-  seed: number,
-): StubScenarioState => {
+  dataset: Dataset,
+  params: DGPParams,
+): StubScenarioResults => {
   const dgp = getDgp(scenarioId);
-  return getStubBuilder(dgp.id)(dgp.defaultParams, seed);
+  const builder = stubResultBuilders.get(dgp.id) ?? buildSuperBowlStubResults;
+  return builder(dataset, params);
 };
 
 export const buildScenarioStateFromParams = (
@@ -45,5 +45,7 @@ export const buildScenarioStateFromParams = (
   seed: number,
 ): StubScenarioState => {
   const dgp = getDgp(scenarioId);
-  return getStubBuilder(dgp.id)(params, seed);
+  const dataset = dgp.generate(params, seed);
+  const { results, headline } = buildScenarioResults(dgp.id, dataset, params);
+  return { dataset, results, headline };
 };
