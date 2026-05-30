@@ -7,7 +7,7 @@ export interface StubScenarioState {
   readonly headline: string;
 }
 
-export interface StubScenarioResults {
+export interface ScenarioResults {
   readonly results: ReadonlyArray<EstimationResult>;
   readonly headline: string;
 }
@@ -147,7 +147,7 @@ export const buildStubResults = ({
   referenceFlags,
   referenceMessage,
   headline,
-}: StubResultsInput): StubScenarioResults => {
+}: StubResultsInput): ScenarioResults => {
   const lastTouchCi = ciAround(naiveEstimate, 0.18, 0.005);
   const referenceCi = ciAround(referenceEstimate, 0.15, 0.004);
 

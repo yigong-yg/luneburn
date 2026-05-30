@@ -2,7 +2,7 @@ import type { Dataset, DGP, DGPParams, ParamSchema } from "./types";
 import {
   buildStubDataset,
   buildStubResults,
-  type StubScenarioResults,
+  type ScenarioResults,
 } from "./stubHelpers";
 
 const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
@@ -88,7 +88,7 @@ export const generateCommerce = (params: DGPParams, seed: number): Dataset =>
 export const buildCommerceStubResults = (
   dataset: Dataset,
   params: DGPParams,
-): StubScenarioResults => {
+): ScenarioResults => {
   const tau = dataset.groundTruth.comparisonEstimand;
   const structuralStress =
     0.55 + params.crossChannelCorrelation * 0.8 + params.noiseStd * 0.05;
