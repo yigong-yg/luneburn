@@ -3,8 +3,9 @@ import {
   buildCommerceStubResults,
   commerceChannelLaunchDgp,
 } from "./commerceChannelLaunch";
-import { buildSuperBowlStubResults, superBowlDgp } from "./superBowl";
-import type { StubScenarioResults, StubScenarioState } from "./stubHelpers";
+import { superBowlDgp, superBowlHeadline } from "./superBowl";
+import type { ScenarioResults, StubScenarioState } from "./stubHelpers";
+import { runEstimators } from "../methods";
 
 export const dgps: ReadonlyArray<DGP> = [
   superBowlDgp,
@@ -20,23 +21,29 @@ export const getDgp = (scenarioId: string): DGP =>
 
 const stubResultBuilders: ReadonlyMap<
   string,
-  (dataset: Dataset, params: DGPParams) => StubScenarioResults
+  (dataset: Dataset, params: DGPParams) => ScenarioResults
 > = new Map([
-  [superBowlDgp.id, buildSuperBowlStubResults],
   [commerceChannelLaunchDgp.id, buildCommerceStubResults],
 ]);
 
-// Session A: datasets are real (Super Bowl) or stubbed (Commerce, deferred), but
-// estimator *results* remain stubs until Session B. They derive from the real
-// dataset's ground truth so the hero chart stays coherent.
+const buildRealSuperBowlResults = (dataset: Dataset): ScenarioResults => ({
+  results: runEstimators(dataset, [
+    superBowlDgp.hero.naiveMethodId,
+    superBowlDgp.hero.referenceMethodId,
+  ]),
+  headline: superBowlHeadline,
+});
+
+// Super Bowl now uses real V0 estimators. Commerce remains an explicit
+// fails-instructively stub until its real DGP and synthetic-control estimator land.
 export const buildScenarioResults = (
   scenarioId: string,
   dataset: Dataset,
   params: DGPParams,
-): StubScenarioResults => {
+): ScenarioResults => {
   const dgp = getDgp(scenarioId);
-  const builder = stubResultBuilders.get(dgp.id) ?? buildSuperBowlStubResults;
-  return builder(dataset, params);
+  const stubBuilder = stubResultBuilders.get(dgp.id);
+  return stubBuilder ? stubBuilder(dataset, params) : buildRealSuperBowlResults(dataset);
 };
 
 export const buildScenarioStateFromParams = (

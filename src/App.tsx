@@ -1,10 +1,10 @@
-import { useMemo } from "react";
 import { ControlPanel } from "./components/controls/ControlPanel";
 import { ScenarioSelector } from "./components/controls/ScenarioSelector";
 import { ExplanationPanel } from "./components/narrative/ExplanationPanel";
 import { HeroChart } from "./components/viz/HeroChart";
-import { buildScenarioResults, dgps, getDgp } from "./lib/dgp";
+import { dgps, getDgp } from "./lib/dgp";
 import { useDataset } from "./hooks/useDataset";
+import { useEstimations } from "./hooks/useEstimations";
 import { chartPalette } from "./lib/visual/palette";
 import { useAppStore } from "./state/store";
 
@@ -18,11 +18,7 @@ export const App = (): JSX.Element => {
 
   const dgp = getDgp(scenarioId);
   const dataset = useDataset(scenarioId, params, seed);
-  // TODO(Session B): replace stub results with a useEstimations hook (real last-touch + DiD).
-  const { results, headline } = useMemo(
-    () => buildScenarioResults(scenarioId, dataset, params),
-    [scenarioId, dataset, params],
-  );
+  const { results, headline } = useEstimations(scenarioId, dataset, params);
   const naiveResult = results.find(
     (result) => result.methodId === dgp.hero.naiveMethodId,
   );

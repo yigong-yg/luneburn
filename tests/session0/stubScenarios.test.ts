@@ -159,7 +159,7 @@ describe("Session 0 stub scenarios", () => {
     expect(JSON.stringify(state.dataset)).toEqual(JSON.stringify(direct));
   });
 
-  it("keeps Super Bowl stub estimates coherent with the real comparison estimand", () => {
+  it("keeps Super Bowl real estimators coherent with the comparison estimand", () => {
     const dgp = getDgp("super-bowl");
     const state = buildScenarioStateFromParams(dgp.id, dgp.defaultParams, 42);
     const tau = state.dataset.groundTruth.comparisonEstimand;
@@ -168,6 +168,26 @@ describe("Session 0 stub scenarios", () => {
 
     expect(lastTouch?.pointEstimate ?? 0).toBeGreaterThan(tau);
     expect(did?.pointEstimate ?? Number.NaN).toBeCloseTo(tau, 1);
+  });
+
+  it("pins the default Super Bowl hero acceptance relationship", () => {
+    const dgp = getDgp("super-bowl");
+    const state = buildScenarioStateFromParams(dgp.id, dgp.defaultParams, 42);
+    const tau = state.dataset.groundTruth.comparisonEstimand;
+    const lastTouch = state.results.find((r) => r.methodId === "last-touch");
+    const did = state.results.find((r) => r.methodId === "did-twfe");
+    const lastTouchEstimate = lastTouch?.pointEstimate ?? Number.NaN;
+    const didEstimate = did?.pointEstimate ?? Number.NaN;
+
+    expect(lastTouch?.status).toBe("warning");
+    expect(lastTouch?.assumptionFlags).toContain("high_channel_correlation");
+    expect(did?.status).toBe("ok");
+    expect(Math.abs(didEstimate - tau)).toBeLessThan(
+      Math.abs(lastTouchEstimate - tau),
+    );
+    expect((lastTouchEstimate - didEstimate) / Math.abs(didEstimate)).toBeGreaterThan(
+      0.3,
+    );
   });
 
   it("computes coverage95 from each confidence interval containing tau_comp", () => {

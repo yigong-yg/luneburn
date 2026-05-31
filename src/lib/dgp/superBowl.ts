@@ -1,5 +1,4 @@
 import type { Dataset, DGP, DGPParams, GroundTruth, ParamSchema, Unit } from "./types";
-import { buildStubResults, type StubScenarioResults } from "./stubHelpers";
 import { gaussian, mulberry32, type Rng } from "../math/random";
 
 const formatPercent = (value: number): string => `${Math.round(value * 100)}%`;
@@ -52,34 +51,13 @@ export const superBowlDefaults: DGPParams = {
   structuralBreakIntensity: 0,
 };
 
-export const buildSuperBowlStubResults = (
-  dataset: Dataset,
-  params: DGPParams,
-): StubScenarioResults => {
-  const tau = dataset.groundTruth.comparisonEstimand;
-  const naiveEstimate =
-    tau * (1.35 + params.crossChannelCorrelation * 1.7 + params.noiseStd * 0.04);
-  const referenceEstimate = tau * (0.96 + params.noiseStd * 0.025);
-
-  return buildStubResults({
-    comparisonEstimand: tau,
-    nPeriods: dataset.nPeriods,
-    crossChannelCorrelation: params.crossChannelCorrelation,
-    naiveEstimate,
-    referenceEstimate,
-    referenceMethodId: "did-twfe",
-    referenceStatus: "ok",
-    referenceFlags: [],
-    referenceMessage: null,
-    headline:
-      "The same Super Bowl spike has known truth; last-touch over-attributes while DiD stays near the synthetic counterfactual.",
-  });
-};
+export const superBowlHeadline =
+  "The same Super Bowl spike has known truth; last-touch over-attributes while DiD stays near the synthetic counterfactual.";
 
 // --- Real V0 Super Bowl data-generating process -----------------------------
 // Panel: 50 DMAs x 52 weeks x 3 channels. A single-week Super Bowl spot is
 // assigned to 25 DMAs at week 26; its outcome lift decays over a few weeks via
-// a response kernel (the treatment array stays a single impulse — DiD must see
+// a response kernel (the treatment array stays a single impulse - DiD must see
 // one event). Lift is multiplicative so (Y1 - Y0)/Y0 = liftPct exactly, which
 // is why ground truth is noise-invariant.
 
@@ -100,6 +78,12 @@ const CHANNEL_BETA = [2, 1.5, 1] as const; // TV, paid search, social
 const CHANNEL_LOG_MEAN = [0.5, 0.2, 0] as const;
 const SPEND_LOG_STD = 0.35;
 const NOISE_BASE = 2.5;
+const COMPANION_MEDIA_SPEND = 15;
+// Observable Super Bowl spend booked on the treatment channel (channel 0) for
+// treated units, decaying across the effect window via EFFECT_KERNEL. It is a
+// pure attribution signal for last-touch - see the comment at its use site.
+const SUPERBOWL_SPEND = 18;
+const TREATMENT_CHANNEL = 0;
 const TWO_PI = Math.PI * 2;
 
 const liftPctFor = (treated: boolean, period: number, trueEffect: number): number => {
@@ -153,9 +137,22 @@ export const generateSuperBowl = (params: DGPParams, seed: number): Dataset => {
       const common = gaussian(rng);
       let channelContribution = 0;
       const spend = new Array<number>(N_CHANNELS).fill(0);
+      const lag = t - TREATMENT_PERIOD;
+      const responseWeight =
+        lag >= 0 && lag < EFFECT_KERNEL.length ? (EFFECT_KERNEL[lag] ?? 0) : 0;
       for (let k = 0; k < N_CHANNELS; k += 1) {
         const latent = sharedWeight * common + idioWeight * gaussian(rng);
-        const value = Math.exp((CHANNEL_LOG_MEAN[k] ?? 0) + SPEND_LOG_STD * latent);
+        // Event-window companion media is symmetric across treated and control
+        // units. It raises the counterfactual outcome for everyone, letting
+        // last-touch misattribute co-moving media without leaking treatment into
+        // ground truth.
+        const companionSpend =
+          k === TREATMENT_CHANNEL
+            ? 0
+            : params.crossChannelCorrelation * COMPANION_MEDIA_SPEND * responseWeight;
+        const value =
+          Math.exp((CHANNEL_LOG_MEAN[k] ?? 0) + SPEND_LOG_STD * latent) +
+          companionSpend;
         spend[k] = value;
         channelContribution += (CHANNEL_BETA[k] ?? 0) * value;
       }
@@ -166,6 +163,16 @@ export const generateSuperBowl = (params: DGPParams, seed: number): Dataset => {
 
       counterfactual[t] = y0;
       outcomes[t] = y0 * (1 + liftPct);
+
+      // Book the Super Bowl spend on the treatment channel AFTER channelContribution
+      // so it never feeds the outcome (no double-count): the causal effect is the
+      // multiplicative liftPct; this spend is only the observable marketing action
+      // that last-touch naively credits. Ground truth is therefore unchanged.
+      if (treated && responseWeight > 0) {
+        spend[TREATMENT_CHANNEL] =
+          (spend[TREATMENT_CHANNEL] ?? 0) + SUPERBOWL_SPEND * responseWeight;
+      }
+
       channelSpend[t] = spend;
       if (treated && t === TREATMENT_PERIOD) {
         treatment[t] = 1;
