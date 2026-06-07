@@ -27,12 +27,27 @@ export interface SeedBandResult {
 
 type EstimatorFn = (dataset: Dataset) => EstimationResult;
 
-const estimatorFor = (methodId: string): EstimatorFn =>
-  methodId === "did-twfe" ? estimateDiD : estimateLastTouch;
+/** Methods the sweep can band. Adding one here forces a case below (exhaustive). */
+export type SweepMethodId = "last-touch" | "did-twfe";
+
+const estimatorFor = (methodId: SweepMethodId): EstimatorFn => {
+  switch (methodId) {
+    case "last-touch":
+      return estimateLastTouch;
+    case "did-twfe":
+      return estimateDiD;
+    default: {
+      // Compile-time exhaustiveness + runtime guard so a bad id never silently
+      // renders the wrong method's band under another label.
+      const unknown: never = methodId;
+      throw new Error(`sweepBand: unknown method id "${String(unknown)}"`);
+    }
+  }
+};
 
 export const sweepBand = (
   params: DGPParams,
-  methodId: string,
+  methodId: SweepMethodId,
   seeds: ReadonlyArray<number> = SWEEP_SEEDS,
 ): SeedBandResult => {
   const estimate = estimatorFor(methodId);

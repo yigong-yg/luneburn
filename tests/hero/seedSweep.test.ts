@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SWEEP_SEEDS, sweepBand } from "../../src/lib/hero/seedSweep";
+import {
+  SWEEP_SEEDS,
+  sweepBand,
+  type SweepMethodId,
+} from "../../src/lib/hero/seedSweep";
 import { generateSuperBowl, superBowlDefaults } from "../../src/lib/dgp/superBowl";
 
 const tau = generateSuperBowl(superBowlDefaults, 1).groundTruth.comparisonEstimand;
@@ -36,5 +40,11 @@ describe("seedSweep", () => {
     // itself must be finite and independent of the comparison.
     const band = sweepBand(superBowlDefaults, "did-twfe");
     expect(Number.isFinite(band.mean)).toBe(true);
+  });
+
+  it("rejects an unknown method id instead of silently using last-touch", () => {
+    expect(() =>
+      sweepBand(superBowlDefaults, "bogus" as unknown as SweepMethodId),
+    ).toThrow(/unknown method id/i);
   });
 });
