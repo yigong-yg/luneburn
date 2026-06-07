@@ -243,5 +243,9 @@ dist/
 *.tsbuildinfo
 .codex-vite.*.log
 .codex-screenshots/
+.playwright-mcp/
+
+# Local design reference (the 1.8MB standalone target) — not part of the app
+demo/
 
 docs
