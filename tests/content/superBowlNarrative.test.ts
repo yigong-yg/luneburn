@@ -111,14 +111,29 @@ describe("methodologySections", () => {
     ]);
   });
 
-  it("reflects a real seed sweep in the determinism section, and omits the claim without one", () => {
-    const withSweep = methodologySections({ sweep: { aboveTruth: 24, total: 24 } });
-    const determinism = withSweep[6]?.body ?? "";
-    expect(determinism).toContain("24/24");
-    expect(determinism.toLowerCase()).toContain("seed");
+  it("uses 'stays above truth' only when every re-seeded panel agrees", () => {
+    const allAbove = methodologySections({ sweep: { aboveTruth: 24, total: 24 } })[6]?.body ?? "";
+    expect(allAbove).toContain("24/24");
+    expect(allAbove).toContain("stays above truth");
+    expect(allAbove.toLowerCase()).toContain("seed");
+  });
 
-    const withoutSweep = methodologySections();
-    expect(withoutSweep[6]?.body ?? "").not.toContain("/");
+  it("reports the partial count without the false 'stays above truth' phrasing", () => {
+    const partial = methodologySections({ sweep: { aboveTruth: 6, total: 24 } })[6]?.body ?? "";
+    expect(partial).toContain("6/24");
+    expect(partial).toContain("above truth in");
+    expect(partial).not.toContain("stays above truth");
+  });
+
+  it("omits the seed-sweep claim entirely without a sweep", () => {
+    expect(methodologySections()[6]?.body ?? "").not.toContain("/");
+  });
+
+  it("describes inference per method rather than as one blanket cluster-robust claim", () => {
+    const inference = methodologySections()[5]?.body ?? "";
+    expect(inference).toContain("DiD");
+    expect(inference).toContain("last-touch");
+    expect(inference).toMatch(/cluster/i);
   });
 
   it("never claims a fixed seed count like 100 in static copy", () => {

@@ -113,10 +113,18 @@ export const methodologySections = (
   options: MethodologyOptions = {},
 ): MethodologySection[] => {
   const sweep = options.sweep ?? null;
-  const determinism =
-    sweep && sweep.total > 0
-      ? `Seed 42 shown; the same seed yields a byte-identical panel. Across ${sweep.total} re-seeded panels last-touch stays above truth (${sweep.aboveTruth}/${sweep.total}); the faint band on each lane is that spread.`
-      : "Seed 42 shown; the same seed yields a byte-identical panel.";
+  const determinismBase =
+    "Seed 42 shown; the same seed yields a byte-identical panel.";
+  let determinism = determinismBase;
+  if (sweep && sweep.total > 0) {
+    // Only the strong "stays above truth" phrasing when every re-seeded panel
+    // agrees; otherwise report the honest fraction (e.g. near the reference state
+    // last-touch lands on truth and the count drops).
+    determinism =
+      sweep.aboveTruth === sweep.total
+        ? `${determinismBase} Last-touch stays above truth across all ${sweep.total} re-seeded panels (${sweep.aboveTruth}/${sweep.total}); the faint band on each lane is that spread.`
+        : `${determinismBase} Last-touch is above truth in ${sweep.aboveTruth}/${sweep.total} re-seeded panels; the faint band on each lane is that spread.`;
+  }
 
   return [
     {
@@ -141,7 +149,7 @@ export const methodologySections = (
     },
     {
       title: "Inference",
-      body: "Cluster-robust standard errors (clustered by DMA), 95% confidence intervals, Pearson channel correlation.",
+      body: "DiD uses DMA-clustered standard errors; last-touch uses cross-DMA variation in attributed lift; both report 95% intervals. Channel correlation is Pearson.",
     },
     {
       title: "Determinism",
