@@ -127,8 +127,8 @@ export const AssumptionStressPanel = ({
           )}
         </button>
         <p className="mt-2 text-xs leading-relaxed text-lunar-muted">
-          Replays the drift from the reference (ρ 0.20, where last-touch happens to
-          sit on truth) up to the stressed showcase.
+          Replays the drift from the reference (ρ 0.20, where last-touch lands near
+          truth) up to the stressed showcase.
         </p>
       </div>
 
