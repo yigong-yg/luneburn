@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 interface RangeSliderProps {
   readonly id: string;
   readonly label: string;
@@ -11,6 +13,25 @@ interface RangeSliderProps {
   readonly disabled?: boolean;
   readonly onChange: (value: number) => void;
 }
+
+type RangeStyle = CSSProperties & {
+  readonly "--range-accent": string;
+  readonly "--range-progress": string;
+};
+
+const rangeStyle = (
+  value: number,
+  min: number,
+  max: number,
+  accent: string,
+): RangeStyle => {
+  const progress = max === min ? 0 : ((value - min) / (max - min)) * 100;
+  return {
+    accentColor: accent,
+    "--range-accent": accent,
+    "--range-progress": `${Math.min(100, Math.max(0, progress))}%`,
+  };
+};
 
 // A styled native range input — accessible (real <input type="range">, arrow/Page
 // keys work for free) with an optional accent color and emphasis treatment.
@@ -49,7 +70,7 @@ export const RangeSlider = ({
       id={id}
       type="range"
       className="mt-2 block w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-      style={{ accentColor: accent }}
+      style={rangeStyle(value, min, max, accent)}
       min={min}
       max={max}
       step={step}

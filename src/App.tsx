@@ -20,6 +20,7 @@ import { estimatorById } from "./lib/methods";
 import type { EstimationResult } from "./lib/methods/types";
 import { instrumentPalette } from "./lib/visual/palette";
 import { useDataset } from "./hooks/useDataset";
+import { useEstimateTrail } from "./hooks/useEstimateTrail";
 import { useEstimations } from "./hooks/useEstimations";
 import { useReferenceEstimations } from "./hooks/useReferenceEstimations";
 import { useReplay } from "./hooks/useReplay";
@@ -55,6 +56,10 @@ export const App = (): JSX.Element => {
   const lastTouch = results.find((r) => r.methodId === "last-touch");
   const did = results.find((r) => r.methodId === "did-twfe");
   const tau = dataset.groundTruth.comparisonEstimand;
+  const trail = useEstimateTrail({
+    lastTouch: lastTouch?.pointEstimate ?? null,
+    did: did?.pointEstimate ?? null,
+  });
 
   if (!lastTouch || !did) {
     return (
@@ -131,29 +136,36 @@ export const App = (): JSX.Element => {
         <Header seed={seed} />
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <EstimateRail tau={tau} lanes={lanes} domain={domain} ticks={ticks} />
-          <AssumptionStressPanel
-            paramSchema={dgp.paramSchema}
-            params={params}
-            isReplaying={isReplaying}
-            onParamChange={setParam}
-            onReset={reset}
-            onReplay={replay}
-            onToReference={toReference}
-          />
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <CurrentRead
-            rho={params.crossChannelCorrelation}
-            tau={tau}
-            lastTouch={lastTouch}
-            did={did}
-          />
-          <AxisProblemPanel
-            perPeriodEffect={dataset.groundTruth.perPeriodEffect}
-            tau={tau}
-          />
+          <div className="flex flex-col gap-5">
+            <EstimateRail
+              tau={tau}
+              lanes={lanes}
+              domain={domain}
+              ticks={ticks}
+              trail={trail}
+            />
+            <CurrentRead
+              rho={params.crossChannelCorrelation}
+              tau={tau}
+              lastTouch={lastTouch}
+              did={did}
+            />
+          </div>
+          <div className="flex flex-col gap-5">
+            <AssumptionStressPanel
+              paramSchema={dgp.paramSchema}
+              params={params}
+              isReplaying={isReplaying}
+              onParamChange={setParam}
+              onReset={reset}
+              onReplay={replay}
+              onToReference={toReference}
+            />
+            <AxisProblemPanel
+              perPeriodEffect={dataset.groundTruth.perPeriodEffect}
+              tau={tau}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">

@@ -1,6 +1,7 @@
 import { pct2, signedPctInt } from "../../lib/hero/format";
 import { railStatusLabel } from "../../lib/content/superBowlNarrative";
 import type { CiVsTruth, RailLane } from "../../lib/hero/rail";
+import type { EstimateTrailSample } from "../../lib/hero/trail";
 import { instrumentPalette } from "../../lib/visual/palette";
 import { StatusPill } from "./StatusPill";
 
@@ -9,6 +10,7 @@ interface EstimateRailProps {
   readonly lanes: ReadonlyArray<RailLane>;
   readonly domain: readonly [number, number];
   readonly ticks: ReadonlyArray<number>;
+  readonly trail?: ReadonlyArray<EstimateTrailSample>;
 }
 
 interface LaneColors {
@@ -58,11 +60,17 @@ const ariaLabel = (tau: number, lanes: ReadonlyArray<RailLane>): string => {
 const TrackLane = ({
   lane,
   pct,
+  trailValues,
 }: {
   lane: RailLane;
   pct: (value: number) => number;
+  trailValues: ReadonlyArray<number | null>;
 }): JSX.Element => {
   const colors = laneColors(lane.methodId);
+  const estimatePct = lane.estimate === null ? null : pct(lane.estimate);
+  const refPct = lane.refEstimate === null ? null : pct(lane.refEstimate);
+  const driftPct =
+    estimatePct === null || refPct === null ? 0 : estimatePct - refPct;
   const biasGlyph =
     lane.biasPct === null ? "" : lane.biasPct >= 0 ? "▲" : "▼";
 
@@ -146,6 +154,40 @@ const TrackLane = ({
               </>
             )}
 
+            {/* transient motion trail from recent parameter states */}
+            {trailValues.map((estimate, index) => {
+              if (estimate === null) {
+                return null;
+              }
+              const age = (index + 1) / (trailValues.length + 1);
+              return (
+                <div
+                  key={`${estimate}-${index}`}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    left: `${pct(estimate)}%`,
+                    backgroundColor: colors.dot,
+                    opacity: 0.06 + age * 0.2,
+                  }}
+                />
+              );
+            })}
+
+            {/* drift connector: reference state -> current estimate */}
+            {refPct !== null && estimatePct !== null && Math.abs(driftPct) > 4 && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 z-10 h-px -translate-y-1/2 border-t border-dashed"
+                style={{
+                  left: `${Math.min(refPct, estimatePct)}%`,
+                  width: `${Math.abs(driftPct)}%`,
+                  borderColor: colors.dot,
+                  opacity: 0.48,
+                }}
+              />
+            )}
+
             {/* reference ghost (ρ 0.20) */}
             {lane.refEstimate !== null && (
               <div
@@ -212,6 +254,7 @@ export const EstimateRail = ({
   lanes,
   domain,
   ticks,
+  trail = [],
 }: EstimateRailProps): JSX.Element => {
   const span = domain[1] - domain[0];
   const pct = (value: number): number =>
@@ -268,7 +311,14 @@ export const EstimateRail = ({
           </div>
 
           {lanes.map((lane) => (
-            <TrackLane key={lane.methodId} lane={lane} pct={pct} />
+            <TrackLane
+              key={lane.methodId}
+              lane={lane}
+              pct={pct}
+              trailValues={trail.map((sample) =>
+                lane.methodId === "last-touch" ? sample.lastTouch : sample.did,
+              )}
+            />
           ))}
         </div>
 
