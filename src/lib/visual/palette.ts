@@ -72,3 +72,12 @@ export const chartPalette: ChartPalette = {
     "synthetic-control": "#009E73",
   },
 };
+
+// Stable method-independent channel identity colors for the estimand ledger.
+// Wong's colorblind-safe palette is used only for data marks; lunar greys remain
+// the UI surface system.
+export const channelPalette: Readonly<Record<"search" | "social" | "video", string>> = {
+  search: "#56B4E9",
+  social: "#E69F00",
+  video: "#CC79A7",
+};

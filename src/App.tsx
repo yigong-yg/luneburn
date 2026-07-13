@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { AssumptionStressPanel } from "./components/controls/AssumptionStressPanel";
 import { Header } from "./components/layout/Header";
 import { CurrentRead } from "./components/narrative/CurrentRead";
@@ -25,6 +26,7 @@ import { useEstimations } from "./hooks/useEstimations";
 import { useReferenceEstimations } from "./hooks/useReferenceEstimations";
 import { useReplay } from "./hooks/useReplay";
 import { useSeedBand } from "./hooks/useSeedBand";
+import { EstimandLabPage } from "./pages/EstimandLabPage";
 import { useAppStore } from "./state/store";
 
 const SCENARIO_ID = "super-bowl";
@@ -40,7 +42,7 @@ const biasLabel = (result: EstimationResult, tau: number): string | null =>
     ? null
     : `${signedPctInt(biasVsTruth(result.pointEstimate, tau))} vs truth`;
 
-export const App = (): JSX.Element => {
+const AssumptionLabPage = (): JSX.Element => {
   const params = useAppStore((state) => state.dgpParams);
   const seed = useAppStore((state) => state.seed);
   const setParam = useAppStore((state) => state.setParam);
@@ -207,4 +209,21 @@ export const App = (): JSX.Element => {
       </div>
     </main>
   );
+};
+
+const routeFromHash = (): "assumptions" | "estimands" =>
+  window.location.hash.startsWith("#/estimands")
+    ? "estimands"
+    : "assumptions";
+
+export const App = (): JSX.Element => {
+  const [route, setRoute] = useState(routeFromHash);
+
+  useEffect(() => {
+    const updateRoute = (): void => setRoute(routeFromHash());
+    window.addEventListener("hashchange", updateRoute);
+    return () => window.removeEventListener("hashchange", updateRoute);
+  }, []);
+
+  return route === "estimands" ? <EstimandLabPage /> : <AssumptionLabPage />;
 };
