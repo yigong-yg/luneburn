@@ -29,7 +29,8 @@ export const EstimandHero = ({ ledger }: EstimandHeroProps): JSX.Element => {
           Estimand Lab / Always-on multichannel demand
         </p>
         <h1 className="mt-3 max-w-3xl font-display text-4xl font-extrabold leading-[1.02] text-lunar-ink sm:text-5xl lg:text-[58px]">
-          The methods disagree because the questions do.
+          The methods disagree because the{" "}
+          <span className="whitespace-nowrap">questions do.</span>
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-lunar-muted sm:text-base">
           One synthetic campaign supports several well-defined targets. First
@@ -64,7 +65,9 @@ export const EstimandHero = ({ ledger }: EstimandHeroProps): JSX.Element => {
             <p className="mt-1 text-[10px] font-semibold uppercase leading-tight tracking-[0.08em] text-lunar-muted">
               true Search-off effect
             </p>
-            <p className="mt-1 text-[9px] text-lunar-mutedSoft">Paired oracle</p>
+            <p className="mt-1 text-[9px] text-lunar-mutedSoft">
+              Paired oracle / conversions
+            </p>
           </div>
           <div className="pl-3">
             <p className="font-display text-2xl font-bold tabular-nums text-lunar-ink">

@@ -2,6 +2,7 @@ import type { EstimandLedger } from "../../lib/estimands/ledger";
 import type { EstimandLabDataset } from "../../lib/estimands/types";
 import type { MarkovMtaResult } from "../../lib/estimands/markovMta";
 import type { MmmLiteResult } from "../../lib/estimands/mmmLite";
+import { firstSignFlipChannel } from "../../lib/estimands/narrative";
 import type { EstimandScenarioDiagnostics } from "../../lib/estimands/scenarioDiagnostics";
 
 interface EstimandCurrentReadProps {
@@ -19,6 +20,12 @@ const flagLabel: Readonly<Record<string, string>> = {
   high_media_collinearity: "Media series are highly correlated",
   regularization_boundary: "Ridge penalty reached the search boundary",
 };
+
+const channelLabel = {
+  search: "Search",
+  social: "Social",
+  video: "Video",
+} as const;
 
 export const EstimandCurrentRead = ({
   dataset,
@@ -39,6 +46,7 @@ export const EstimandCurrentRead = ({
     dataset.oracle.jointIncremental === 0
       ? 0
       : overlap / dataset.oracle.jointIncremental;
+  const signFlipChannel = firstSignFlipChannel(ledger.channelOff.rows);
   const flags = [
     ...new Set([
       ...mta.assumptionFlags,
@@ -62,6 +70,12 @@ export const EstimandCurrentRead = ({
         channel-off conversions ({Math.round(overlapShare * 100)}% of joint
         lift). Summing those turn-off effects would double count shared lift.
       </p>
+      {signFlipChannel && (
+        <p className="mt-2 text-xs leading-relaxed text-lunar-muted">
+          Regression estimates can redistribute effects across correlated
+          media and flip signs, as {channelLabel[signFlipChannel]} does here.
+        </p>
+      )}
       {flags.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Assumption warnings">
           {flags.map((flag) => (

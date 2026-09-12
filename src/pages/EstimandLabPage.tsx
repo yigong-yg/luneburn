@@ -6,7 +6,9 @@ import { EstimandLedgerBoard } from "../components/estimands/EstimandLedgerBoard
 import { EstimandMethodology } from "../components/estimands/EstimandMethodology";
 import { QuestionSelector } from "../components/estimands/QuestionSelector";
 import { LabNavigation } from "../components/layout/LabNavigation";
+import { LabFooter } from "../components/layout/LabFooter";
 import { useEstimandLab } from "../hooks/useEstimandLab";
+import { serializeEstimandHash } from "../lib/estimands/urlState";
 
 export const EstimandLabPage = (): JSX.Element => {
   const lab = useEstimandLab();
@@ -41,6 +43,7 @@ export const EstimandLabPage = (): JSX.Element => {
           <div className="flex flex-col gap-4 xl:sticky xl:top-5">
             <EstimandControls
               state={lab.state}
+              serializedHash={serializeEstimandHash(lab.state)}
               onDemandCaptureChange={lab.setDemandCapture}
               onSynergyChange={lab.setSynergy}
               onNoiseChange={lab.setNoiseStd}
@@ -60,10 +63,7 @@ export const EstimandLabPage = (): JSX.Element => {
         <DecisionCheck />
         <EstimandMethodology />
 
-        <footer className="flex flex-col justify-between gap-2 border-t border-lunar-border pt-4 text-[10px] font-semibold uppercase tracking-[0.1em] text-lunar-mutedSoft sm:flex-row">
-          <span>Luneburn / A Measurement Assumption Lab</span>
-          <span>One truth per well-defined causal question</span>
-        </footer>
+        <LabFooter route="estimands" />
       </div>
     </main>
   );

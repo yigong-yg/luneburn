@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AssumptionStressPanel } from "./components/controls/AssumptionStressPanel";
 import { Header } from "./components/layout/Header";
+import { LabFooter } from "./components/layout/LabFooter";
 import { CurrentRead } from "./components/narrative/CurrentRead";
 import { MethodCard } from "./components/narrative/MethodCard";
 import { MethodologyProofStrip } from "./components/narrative/MethodologyProofStrip";
@@ -206,6 +207,17 @@ const AssumptionLabPage = (): JSX.Element => {
               : null
           }
         />
+        <p className="text-sm text-lunar-muted">
+          Next: the same campaign, but the question itself changes -{" "}
+          <a
+            href="#/estimands"
+            aria-label="Next: Estimand contracts"
+            className="font-semibold text-lunar-primary underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lunar-primary"
+          >
+            Estimand contracts →
+          </a>
+        </p>
+        <LabFooter route="assumptions" />
       </div>
     </main>
   );
@@ -218,6 +230,13 @@ const routeFromHash = (): "assumptions" | "estimands" =>
 
 export const App = (): JSX.Element => {
   const [route, setRoute] = useState(routeFromHash);
+
+  useEffect(() => {
+    document.title = `Luneburn · ${
+      route === "estimands" ? "Estimand contracts" : "Assumption stress"
+    }`;
+    window.scrollTo(0, 0);
+  }, [route]);
 
   useEffect(() => {
     const updateRoute = (): void => setRoute(routeFromHash());

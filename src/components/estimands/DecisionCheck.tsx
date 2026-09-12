@@ -85,7 +85,9 @@ export const DecisionCheck = (): JSX.Element => {
             >
               {correct
                 ? "Decision-aligned. Turning Search off is an intervention, so the memo needs a channel-off causal contrast and its uncertainty."
-                : "That number answers a different question. Path credit describes journeys; Shapley divides a joint total. Neither directly predicts the Search-off intervention."}
+                : answer === "credit"
+                  ? "Path credit describes recorded journeys under the current exposure process; pausing Search changes that process, so that credit share cannot forecast the intervention."
+                  : "Shapley divides the joint total under an allocation convention; it is not the marginal effect of turning one channel off."}
             </p>
           )}
         </div>

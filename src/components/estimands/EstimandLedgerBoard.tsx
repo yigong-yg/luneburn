@@ -72,10 +72,12 @@ const MeasureRow = ({
   panel,
   row,
   domain,
+  showZeroTick,
 }: {
   readonly panel: EstimandLedgerPanel;
   readonly row: EstimandLedgerRow;
   readonly domain: Domain;
+  readonly showZeroTick: boolean;
 }): JSX.Element => {
   const zero = position(0, domain);
   const value = row.value;
@@ -84,7 +86,7 @@ const MeasureRow = ({
   const width = Math.max(0, Math.abs(valuePosition - zero));
 
   return (
-    <div className="py-3 first:pt-1">
+    <div className={`py-3 first:pt-1 ${showZeroTick ? "pb-5" : ""}`}>
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span
@@ -109,7 +111,7 @@ const MeasureRow = ({
       </div>
 
       <div
-        className="relative mt-2 h-5 overflow-hidden bg-lunar-grid/75"
+        className={`relative mt-2 h-5 bg-lunar-grid/75 ${showZeroTick ? "overflow-visible" : "overflow-hidden"}`}
         aria-label={`${channelLabel[row.channel]} ${valueLabel(panel, row)}`}
       >
         <span
@@ -149,6 +151,16 @@ const MeasureRow = ({
             style={{ left: `${position(row.oracleValue, domain)}%` }}
           />
         )}
+        {showZeroTick && (
+          <span
+            data-testid="ledger-zero-tick"
+            aria-hidden="true"
+            className="absolute top-5 -translate-x-1/2 text-[9px] font-semibold tabular-nums text-lunar-mutedSoft"
+            style={{ left: `${zero}%` }}
+          >
+            0
+          </span>
+        )}
       </div>
     </div>
   );
@@ -174,7 +186,7 @@ const LedgerPanel = ({
   return (
     <article
       id={`estimand-panel-${panel.question}`}
-      role="tabpanel"
+      role="region"
       aria-label={panel.questionLabel}
       className={`flex min-h-[430px] flex-col border bg-white px-4 py-4 shadow-instrument transition-[border-color,opacity] sm:px-5 ${
         selected
@@ -193,7 +205,10 @@ const LedgerPanel = ({
             {statusLabel[panel.status]}
           </span>
           {intervalsPending && panel.question === "channel-off" && (
-            <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-lunar-mutedSoft">
+            <span
+              data-testid="intervals-pending"
+              className="text-[9px] font-semibold uppercase tracking-[0.08em] text-lunar-mutedSoft"
+            >
               Updating intervals
             </span>
           )}
@@ -210,12 +225,13 @@ const LedgerPanel = ({
       </p>
 
       <div className="mt-5 flex-1 border-t border-lunar-border pt-3">
-        {panel.rows.map((row) => (
+        {panel.rows.map((row, index) => (
           <MeasureRow
             key={row.channel}
             panel={panel}
             row={row}
             domain={domain}
+            showZeroTick={domain.minimum < 0 && index === 0}
           />
         ))}
       </div>

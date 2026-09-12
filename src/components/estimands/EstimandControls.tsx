@@ -6,6 +6,7 @@ import { RangeSlider } from "../controls/RangeSlider";
 
 interface EstimandControlsProps {
   readonly state: EstimandLabUrlState;
+  readonly serializedHash: string;
   readonly onDemandCaptureChange: (value: number) => void;
   readonly onSynergyChange: (value: number) => void;
   readonly onNoiseChange: (value: number) => void;
@@ -15,6 +16,7 @@ interface EstimandControlsProps {
 
 export const EstimandControls = ({
   state,
+  serializedHash,
   onDemandCaptureChange,
   onSynergyChange,
   onNoiseChange,
@@ -27,7 +29,8 @@ export const EstimandControls = ({
 
   const copyLink = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const url = `${window.location.origin}${window.location.pathname}${serializedHash}`;
+      await navigator.clipboard.writeText(url);
       setCopyState("copied");
       emitLabEvent({
         name: "permalink_copy",
@@ -148,6 +151,13 @@ export const EstimandControls = ({
               ? "Copy failed"
               : "Copy this state"}
         </button>
+        <span role="status" aria-live="polite" className="sr-only">
+          {copyState === "copied"
+            ? "Link copied"
+            : copyState === "failed"
+              ? "Copy failed"
+              : ""}
+        </span>
       </div>
     </aside>
   );

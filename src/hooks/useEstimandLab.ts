@@ -61,6 +61,22 @@ export const useEstimandLab = (): EstimandLabController => {
     noiseStd: state.noiseStd,
   });
 
+  useEffect(() => {
+    const restoreHashState = (): void => {
+      if (window.location.hash.startsWith("#/estimands")) {
+        const restored = parseEstimandHash(window.location.hash);
+        previousControls.current = {
+          demandCapture: restored.demandCapture,
+          synergy: restored.synergy,
+          noiseStd: restored.noiseStd,
+        };
+        setState(restored);
+      }
+    };
+    window.addEventListener("hashchange", restoreHashState);
+    return () => window.removeEventListener("hashchange", restoreHashState);
+  }, []);
+
   const dataset = useMemo(
     () =>
       generateEstimandLab(
@@ -105,9 +121,15 @@ export const useEstimandLab = (): EstimandLabController => {
 
   useEffect(() => {
     const nextHash = serializeEstimandHash(state);
-    if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, "", nextHash);
-    }
+    const timeout = window.setTimeout(() => {
+      if (window.location.hash === nextHash) return;
+      try {
+        window.history.replaceState(null, "", nextHash);
+      } catch {
+        // The state remains authoritative if the browser rate-limits history writes.
+      }
+    }, 200);
+    return () => window.clearTimeout(timeout);
   }, [state]);
 
   useEffect(() => {
@@ -128,7 +150,10 @@ export const useEstimandLab = (): EstimandLabController => {
       ...(prior.synergy === state.synergy
         ? []
         : [
-            ["search_video_synergy", controlBucket(state.synergy, 0, 0.8)] as const,
+            [
+              "search_video_synergy",
+              controlBucket(state.synergy, 0, 0.8),
+            ] as const,
           ]),
       ...(prior.noiseStd === state.noiseStd
         ? []
@@ -173,7 +198,19 @@ export const useEstimandLab = (): EstimandLabController => {
     });
   };
 
-  const reset = (): void => setState(estimandLabUrlDefaults);
+  const reset = (): void => {
+    previousControls.current = {
+      demandCapture: estimandLabUrlDefaults.demandCapture,
+      synergy: estimandLabUrlDefaults.synergy,
+      noiseStd: estimandLabUrlDefaults.noiseStd,
+    };
+    setState(estimandLabUrlDefaults);
+    emitLabEvent({
+      name: "estimand_control_commit",
+      page: "estimands",
+      detail: { control: "all", bucket: "reset" },
+    });
+  };
   const scenarioDiagnostics = useMemo(
     () => deriveScenarioDiagnostics(dataset.params),
     [dataset.params],
