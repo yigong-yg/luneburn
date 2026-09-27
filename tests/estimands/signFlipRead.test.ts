@@ -15,10 +15,14 @@ import { deriveScenarioDiagnostics } from "../../src/lib/estimands/scenarioDiagn
 
 describe("sign-flip explanation on computed data", () => {
   it.each([0, 0.68])(
-    "keeps a visible sign flip explained at demand capture %s without claiming confounding is its only cause",
+    "does not invent a Video sign flip after media-plan calibration at demand capture %s",
     (demandCapture) => {
       const dataset = generateEstimandLab(
-        { ...estimandLabDefaults, demandCapture },
+        {
+          ...estimandLabDefaults,
+          demandCapture,
+          synergy: demandCapture === 0 ? 0 : estimandLabDefaults.synergy,
+        },
         2307,
       );
       const mta = estimateMarkovMta(toMtaObservedData(dataset));
@@ -29,7 +33,7 @@ describe("sign-flip explanation on computed data", () => {
       const video = ledger.channelOff.rows.find(
         (row) => row.channel === "video",
       );
-      expect(video?.value).toBeLessThan(0);
+      expect(video?.value).toBeGreaterThan(0);
       expect(video?.oracleValue).toBeGreaterThan(0);
 
       const html = renderToStaticMarkup(
@@ -41,9 +45,39 @@ describe("sign-flip explanation on computed data", () => {
           scenarioDiagnostics: deriveScenarioDiagnostics(dataset.params),
         }),
       );
-      expect(html).toContain("Regression estimates can");
-      expect(html).toContain("Video");
+      expect(html).not.toContain("opposite sign");
       expect(html).not.toContain("Confounded regressions");
+      if (dataset.params.synergy === 0) {
+        expect(html).toContain("no structural Search x Video interaction");
+        expect(ledger.channelOff.note).toContain(
+          "realized paired conversion counts",
+        );
+      }
+
+      // Exercise the rendering branch explicitly, independent of calibration.
+      const signFlippedLedger = {
+        ...ledger,
+        channelOff: {
+          ...ledger.channelOff,
+          rows: ledger.channelOff.rows.map((row) =>
+            row.channel === "video"
+              ? { ...row, value: -(row.oracleValue ?? 1) }
+              : row,
+          ),
+        },
+      };
+      const signFlipHtml = renderToStaticMarkup(
+        createElement(EstimandCurrentRead, {
+          dataset,
+          ledger: signFlippedLedger,
+          mta,
+          mmm,
+          scenarioDiagnostics: deriveScenarioDiagnostics(dataset.params),
+        }),
+      );
+      expect(signFlipHtml).toContain("Video estimate has the opposite sign");
+      expect(signFlipHtml).toContain("estimation error within one target");
+      expect(signFlipHtml).not.toContain("correlated media");
     },
   );
 });

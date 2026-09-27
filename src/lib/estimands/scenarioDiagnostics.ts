@@ -1,6 +1,8 @@
 import type { EstimandLabParams } from "./types";
 
-export type EstimandScenarioAssumptionFlag = "omitted_demand_confounder";
+export type EstimandScenarioAssumptionFlag =
+  | "omitted_demand_confounder"
+  | "omitted_media_interaction";
 
 export interface EstimandScenarioDiagnostics {
   readonly assumptionFlags: ReadonlyArray<EstimandScenarioAssumptionFlag>;
@@ -12,7 +14,13 @@ export interface EstimandScenarioDiagnostics {
  */
 export const deriveScenarioDiagnostics = (
   params: EstimandLabParams,
-): EstimandScenarioDiagnostics => ({
-  assumptionFlags:
-    params.demandCapture > 0.35 ? ["omitted_demand_confounder"] : [],
-});
+): EstimandScenarioDiagnostics => {
+  const assumptionFlags: EstimandScenarioAssumptionFlag[] = [];
+  if (params.demandCapture > 0) {
+    assumptionFlags.push("omitted_demand_confounder");
+  }
+  if (params.synergy > 0) {
+    assumptionFlags.push("omitted_media_interaction");
+  }
+  return { assumptionFlags };
+};

@@ -70,36 +70,47 @@ const spendFor = (
   seasonalSin: number,
   seasonalCos: number,
   demandCapture: number,
+  planned: number,
   rng: Rng,
 ): number => {
   const noise = gaussian(rng) * 0.11;
   if (channel === "search") {
     return positive(
       1.05 +
+        planned +
         0.14 * seasonalSin +
-        demandCapture * 0.28 * demand +
+        demandCapture * 0.9 * demand +
         noise,
     );
   }
   if (channel === "social") {
     return positive(
-      0.9 + 0.12 * seasonalCos + demandCapture * 0.04 * demand + noise,
+      0.9 +
+        planned +
+        0.12 * seasonalCos +
+        demandCapture * 0.04 * demand +
+        noise,
     );
   }
-  return positive(0.82 - 0.1 * seasonalSin + 0.08 * seasonalCos + noise);
+  return positive(
+    0.82 + planned - 0.1 * seasonalSin + 0.08 * seasonalCos + noise,
+  );
 };
 
 const buildEnvironment = (
   params: EstimandLabParams,
   rng: Rng,
+  planRng: Rng,
 ): ReadonlyArray<WeekEnvironment> => {
   let previousDemandShock = 0;
   const previousAdstock = channelRecord(() => 0);
   const weeks: WeekEnvironment[] = [];
 
   for (let week = 0; week < params.nWeeks; week += 1) {
-    const trend =
-      params.nWeeks <= 1 ? 0 : week / (params.nWeeks - 1) - 0.5;
+    // Independently randomized weekly flights supply variation beyond
+    // seasonal controls. The plan is fixed before demand and outcomes.
+    const planned = channelRecord(() => (planRng() < 0.8 ? -0.7 : 2.8));
+    const trend = params.nWeeks <= 1 ? 0 : week / (params.nWeeks - 1) - 0.5;
     const seasonalSin = Math.sin((TWO_PI * week) / 52);
     const seasonalCos = Math.cos((TWO_PI * week) / 52);
     const innovation = gaussian(rng);
@@ -107,7 +118,10 @@ const buildEnvironment = (
       0.55 * previousDemandShock + Math.sqrt(1 - 0.55 ** 2) * innovation;
     previousDemandShock = demandShock;
     const demand =
-      0.2 * trend + 0.42 * seasonalSin + 0.16 * seasonalCos + 0.55 * demandShock;
+      0.2 * trend +
+      0.42 * seasonalSin +
+      0.16 * seasonalCos +
+      0.55 * params.noiseStd * demandShock;
 
     const spend = channelRecord((channel) =>
       spendFor(
@@ -116,6 +130,7 @@ const buildEnvironment = (
         seasonalSin,
         seasonalCos,
         params.demandCapture,
+        planned[channel],
         rng,
       ),
     );
@@ -244,7 +259,13 @@ export const generateEstimandLab = (
   }
 
   const rng = mulberry32(seed);
-  const environments = buildEnvironment(params, rng);
+  const environments = buildEnvironment(
+    params,
+    rng,
+    mulberry32(seed ^ 0x504c414e),
+  );
+  const customerRng = mulberry32(seed ^ 0x43555354);
+  const touchRng = mulberry32(seed ^ 0x544f5543);
   const coalitionOutcomes = new Array<number>(8).fill(0);
   const journeys: CustomerJourney[] = [];
   const weekly: WeeklyAggregate[] = [];
@@ -257,15 +278,15 @@ export const generateEstimandLab = (
       opportunity < params.opportunitiesPerWeek;
       opportunity += 1
     ) {
-      const individualNoise = gaussian(rng);
+      const individualNoise = gaussian(customerRng);
       const individualIntent = environment.demand + 0.85 * individualNoise;
       const touches = generateTouches(
         environment,
         individualIntent,
         params.demandCapture,
-        rng,
+        touchRng,
       );
-      const conversionUniform = rng();
+      const conversionUniform = customerRng();
 
       for (let coalitionMask = 0; coalitionMask < 8; coalitionMask += 1) {
         if (

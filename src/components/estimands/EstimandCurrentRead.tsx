@@ -17,8 +17,9 @@ const flagLabel: Readonly<Record<string, string>> = {
   observational_credit_only: "MTA is observational credit",
   incomplete_path_coverage: "Some journeys have no recorded touch",
   omitted_demand_confounder: "Latent demand is omitted from MMM",
-  high_media_collinearity: "Media series are highly correlated",
-  regularization_boundary: "Ridge penalty reached the search boundary",
+  omitted_media_interaction: "MMM omits the Search x Video interaction",
+  high_media_collinearity: "A media series has little independent variation",
+  regularization_boundary: "Ridge penalty reached the upper search boundary",
 };
 
 const channelLabel = {
@@ -66,18 +67,33 @@ export const EstimandCurrentRead = ({
         the exposure process did.
       </p>
       <p className="mt-2 text-xs leading-relaxed text-lunar-muted">
-        Search x Video interaction creates {Math.round(overlap).toLocaleString("en-US")} overlapping
-        channel-off conversions ({Math.round(overlapShare * 100)}% of joint
-        lift). Summing those turn-off effects would double count shared lift.
+        {dataset.params.synergy > 0 ? (
+          <>
+            Search x Video interaction creates{" "}
+            {Math.round(overlap).toLocaleString("en-US")} overlapping
+            channel-off conversions ({Math.round(overlapShare * 100)}% of joint
+            lift). Summing those turn-off effects would double count shared
+            lift.
+          </>
+        ) : (
+          <>
+            There is no structural Search x Video interaction. Realized paired
+            conversion counts can still differ slightly from exact additivity.
+          </>
+        )}
       </p>
       {signFlipChannel && (
         <p className="mt-2 text-xs leading-relaxed text-lunar-muted">
-          Regression estimates can redistribute effects across correlated
-          media and flip signs, as {channelLabel[signFlipChannel]} does here.
+          The {channelLabel[signFlipChannel]} estimate has the opposite sign
+          from its paired oracle. This is estimation error within one target,
+          not a disagreement between estimands.
         </p>
       )}
       {flags.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Assumption warnings">
+        <div
+          className="mt-4 flex flex-wrap gap-1.5"
+          aria-label="Assumption warnings"
+        >
           {flags.map((flag) => (
             <span
               key={flag}

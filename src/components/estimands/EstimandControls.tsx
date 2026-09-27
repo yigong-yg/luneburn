@@ -114,7 +114,7 @@ export const EstimandControls = ({
         <div className="mt-4">
           <RangeSlider
             id="outcome-noise"
-            label="Outcome noise"
+            label="Campaign noise"
             value={state.noiseStd}
             displayValue={state.noiseStd.toFixed(1)}
             min={0.2}
@@ -122,6 +122,9 @@ export const EstimandControls = ({
             step={0.1}
             onChange={onNoiseChange}
           />
+          <p className="mt-2 text-[11px] leading-relaxed text-lunar-muted">
+            Scales weekly demand shocks and individual outcome noise.
+          </p>
         </div>
       </details>
 

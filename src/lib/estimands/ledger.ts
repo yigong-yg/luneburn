@@ -8,10 +8,7 @@ import {
   type EstimandLabDataset,
 } from "./types";
 
-export type EstimandQuestion =
-  | "credit"
-  | "channel-off"
-  | "joint-allocation";
+export type EstimandQuestion = "credit" | "channel-off" | "joint-allocation";
 
 export type ClaimAdditivity =
   | "sums-to-observed"
@@ -66,8 +63,7 @@ export const buildEstimandLedger = (
   );
   const mtaValues = mta.creditedConversions ?? channelRecord(() => null);
   const mmmValues = mmm.channelOffIncremental ?? channelRecord(() => null);
-  const mmmIntervals =
-    mmm.confidenceIntervals ?? channelRecord(() => null);
+  const mmmIntervals = mmm.confidenceIntervals ?? channelRecord(() => null);
   const scenarioDiagnostics = deriveScenarioDiagnostics(dataset.params);
   const channelOffStatus =
     mmm.status === "invalid"
@@ -129,7 +125,11 @@ export const buildEstimandLedger = (
           confidenceInterval: mmmIntervals[channel],
         };
       }),
-      note: `True channel-off effects total ${Math.round(channelOffTruthTotal).toLocaleString("en-US")}, while joint lift is ${Math.round(jointIncremental).toLocaleString("en-US")}. Interaction is counted in more than one channel-off contrast; that overlap is not estimator error.`,
+      note: `True channel-off effects total ${Math.round(channelOffTruthTotal).toLocaleString("en-US")}, while joint lift is ${Math.round(jointIncremental).toLocaleString("en-US")}. ${
+        dataset.params.synergy > 0
+          ? "Interaction is counted in more than one channel-off contrast; that overlap is not estimator error."
+          : "With zero structural interaction, small differences reflect realized paired conversion counts."
+      }`,
     },
     jointAllocation: {
       question: "joint-allocation",

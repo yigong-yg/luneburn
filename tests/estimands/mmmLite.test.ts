@@ -6,10 +6,7 @@ import {
 } from "../../src/lib/estimands/multichannelDgp";
 import { estimateMmmLite } from "../../src/lib/estimands/mmmLite";
 import { geometricAdstock } from "../../src/lib/math/adstock";
-import type {
-  ChannelId,
-  MmmObservedData,
-} from "../../src/lib/estimands/types";
+import type { ChannelId, MmmObservedData } from "../../src/lib/estimands/types";
 
 const validityParams = {
   ...estimandLabDefaults,
@@ -92,7 +89,32 @@ const buildValidityFixture = (): {
 };
 
 describe("MMM-lite", () => {
-  it("recovers channel-off effects when its identifying assumptions hold", () => {
+  it.each([2307, 42, 2718])(
+    "recovers the real paired DGP oracle in a high-information additive regime (seed %s)",
+    (seed) => {
+      // More customers reduce binomial error; low campaign noise reduces the
+      // independent weekly demand shocks. Neither changes the causal coefficients.
+      const dataset = generateEstimandLab(
+        {
+          ...validityParams,
+          noiseStd: 0.2,
+          opportunitiesPerWeek: 6000,
+        },
+        seed,
+      );
+      const result = estimateMmmLite(toMmmObservedData(dataset), {
+        bootstrapReplications: 0,
+      });
+      expect(result.status).not.toBe("invalid");
+      for (const channel of dataset.channels) {
+        const truth = dataset.oracle.channelOffIncremental[channel];
+        const estimate = result.channelOffIncremental?.[channel] ?? 0;
+        expect(Math.abs(estimate - truth) / truth, channel).toBeLessThan(0.1);
+      }
+    },
+  );
+
+  it("recovers known coefficients in a linear algebra sanity fixture", () => {
     const fixture = buildValidityFixture();
     const result = estimateMmmLite(fixture.data, {
       bootstrapReplications: 24,
@@ -111,6 +133,10 @@ describe("MMM-lite", () => {
   });
 
   it("flags positive Search bias when latent demand drives Search spend", () => {
+    const lowDemand = generateEstimandLab(validityParams, 2718);
+    const lowResult = estimateMmmLite(toMmmObservedData(lowDemand), {
+      bootstrapReplications: 0,
+    });
     const dataset = generateEstimandLab(
       {
         ...validityParams,
@@ -126,6 +152,33 @@ describe("MMM-lite", () => {
     expect(result.channelOffIncremental?.search ?? 0).toBeGreaterThan(
       dataset.oracle.channelOffIncremental.search,
     );
+    const lowBias =
+      (lowResult.channelOffIncremental?.search ?? 0) -
+      lowDemand.oracle.channelOffIncremental.search;
+    const highBias =
+      (result.channelOffIncremental?.search ?? 0) -
+      dataset.oracle.channelOffIncremental.search;
+    expect(highBias).toBeGreaterThan(lowBias);
+  });
+
+  it("moves signed Search error upward across the canonical demand sweep", () => {
+    const errors = [0, 0.2, 0.35, 0.68, 0.9].map((demandCapture) => {
+      const dataset = generateEstimandLab(
+        { ...estimandLabDefaults, demandCapture },
+        2307,
+      );
+      const result = estimateMmmLite(toMmmObservedData(dataset), {
+        bootstrapReplications: 0,
+      });
+      return (
+        (result.channelOffIncremental?.search ?? 0) -
+        dataset.oracle.channelOffIncremental.search
+      );
+    });
+    for (let index = 1; index < errors.length; index += 1) {
+      expect(errors[index]).toBeGreaterThan(errors[index - 1] ?? Infinity);
+    }
+    expect(errors[errors.length - 1]).toBeGreaterThan(0);
   });
 
   it("is deterministic, including its moving-block intervals", () => {

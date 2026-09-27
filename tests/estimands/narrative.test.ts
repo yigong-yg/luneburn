@@ -1,42 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { buildEstimandLedger } from "../../src/lib/estimands/ledger";
+import type { EstimandLedgerRow } from "../../src/lib/estimands/ledger";
 import { firstSignFlipChannel } from "../../src/lib/estimands/narrative";
-import { estimateMarkovMta } from "../../src/lib/estimands/markovMta";
-import { estimateMmmLite } from "../../src/lib/estimands/mmmLite";
-import {
-  estimandLabDefaults,
-  generateEstimandLab,
-  toMmmObservedData,
-  toMtaObservedData,
-} from "../../src/lib/estimands/multichannelDgp";
 
-const ledgerAtDemandCapture = (demandCapture: number) => {
-  const dataset = generateEstimandLab(
-    { ...estimandLabDefaults, demandCapture },
-    2307,
-  );
-  return buildEstimandLedger(
-    dataset,
-    estimateMarkovMta(toMtaObservedData(dataset)),
-    estimateMmmLite(toMmmObservedData(dataset), {
-      bootstrapReplications: 0,
-    }),
-  );
-};
+const row = (
+  channel: EstimandLedgerRow["channel"],
+  value: number | null,
+  oracleValue: number | null,
+): EstimandLedgerRow => ({
+  channel,
+  value,
+  oracleValue,
+  share: null,
+  confidenceInterval: null,
+});
 
 describe("estimand narrative", () => {
-  it("surfaces the landing-state Video sign flip from estimate and oracle values", () => {
-    expect(firstSignFlipChannel(ledgerAtDemandCapture(0.68).channelOff.rows)).toBe(
-      "video",
-    );
+  it("surfaces the first actual sign disagreement rather than a fixed channel", () => {
+    expect(
+      firstSignFlipChannel([
+        row("search", 120, 120),
+        row("social", -20, 80),
+        row("video", -40, 40),
+      ]),
+    ).toBe("social");
+    expect(firstSignFlipChannel([row("video", -40, 40)])).toBe("video");
   });
 
-  it("hides the sign-flip narrative when every displayed estimate agrees in sign", () => {
-    const alignedRows = ledgerAtDemandCapture(0).channelOff.rows.map((row) => ({
-      ...row,
-      value: row.oracleValue,
-    }));
-
-    expect(firstSignFlipChannel(alignedRows)).toBeNull();
+  it("hides the sign-flip narrative for aligned, zero, or unavailable estimates", () => {
+    expect(
+      firstSignFlipChannel([
+        row("search", 120, 120),
+        row("social", 80, 80),
+        row("video", 40, 40),
+      ]),
+    ).toBeNull();
+    expect(
+      firstSignFlipChannel([
+        row("search", null, 120),
+        row("social", 0, 80),
+        row("video", 40, null),
+      ]),
+    ).toBeNull();
   });
 });

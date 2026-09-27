@@ -34,6 +34,12 @@ export interface MmmLiteOptions {
   readonly bootstrapSeed?: number;
 }
 
+export interface MediaIdentificationDiagnostic {
+  readonly rSquared: number;
+  readonly vif: number;
+  readonly residualVariationShare: number;
+}
+
 export interface MmmLiteResult {
   readonly status: EstimationStatus;
   readonly assumptionFlags: ReadonlyArray<MmmLiteAssumptionFlag>;
@@ -49,6 +55,9 @@ export interface MmmLiteResult {
     folds: number;
     cvRmse: number | null;
     maxMediaCorrelation: number | null;
+    mediaIdentification: Readonly<
+      Record<ChannelId, MediaIdentificationDiagnostic>
+    > | null;
     bootstrapReplications: number;
   }>;
 }
@@ -84,6 +93,7 @@ const invalidResult = (
     folds: 0,
     cvRmse: null,
     maxMediaCorrelation: null,
+    mediaIdentification: null,
     bootstrapReplications: 0,
   },
 });
@@ -111,9 +121,7 @@ const fitScaler = (
   });
   const scales = Array.from({ length: columns }, (_unused, column) => {
     if (column === 0) return 1;
-    const values = indices.map(
-      (index) => rows[index]?.[column] ?? Number.NaN,
-    );
+    const values = indices.map((index) => rows[index]?.[column] ?? Number.NaN);
     const scale = Math.sqrt(variance(values));
     if (!Number.isFinite(scale) || scale < 1e-10) {
       throw new Error(`standardized feature ${column} has no variation`);
@@ -131,8 +139,7 @@ const applyScaler = (
     row.map((value, column) =>
       column === 0
         ? value
-        : (value - (scaler.means[column] ?? 0)) /
-          (scaler.scales[column] ?? 1),
+        : (value - (scaler.means[column] ?? 0)) / (scaler.scales[column] ?? 1),
     ),
   );
 
@@ -183,6 +190,48 @@ const pearson = (
   return denominator <= 1e-12 ? 0 : covariance / denominator;
 };
 
+const mediaIdentificationDiagnostics = (
+  inputs: ModelInputs,
+): Record<ChannelId, MediaIdentificationDiagnostic> => {
+  const channelColumn: Readonly<Record<ChannelId, number>> = {
+    search: 1,
+    social: 2,
+    video: 3,
+  };
+
+  return channelRecord((channel) => {
+    const targetColumn = channelColumn[channel];
+    const target = inputs.rawDesign.map((row) => row[targetColumn] ?? 0);
+    const auxiliaryDesign = inputs.rawDesign.map((row) =>
+      row.filter((_value, column) => column !== targetColumn),
+    );
+    const fit = fitRidge(auxiliaryDesign, target, 0);
+    const prediction = predictLinear(auxiliaryDesign, fit.coefficients);
+    const targetMean = mean(target);
+    const totalVariation = target.reduce(
+      (sum, value) => sum + (value - targetMean) ** 2,
+      0,
+    );
+    const residualVariation = target.reduce(
+      (sum, value, index) => sum + (value - (prediction[index] ?? 0)) ** 2,
+      0,
+    );
+    const residualVariationShare = Math.min(
+      1,
+      Math.max(0, residualVariation / totalVariation),
+    );
+    const rSquared = 1 - residualVariationShare;
+    return {
+      rSquared,
+      vif:
+        residualVariationShare <= 1e-12
+          ? Number.POSITIVE_INFINITY
+          : 1 / residualVariationShare,
+      residualVariationShare,
+    };
+  });
+};
+
 const buildInputs = (data: MmmObservedData): ModelInputs => {
   const spend = channelRecord((channel) =>
     data.weekly.map((row) => row.spend[channel]),
@@ -224,7 +273,11 @@ const buildInputs = (data: MmmObservedData): ModelInputs => {
 
 const selectLambda = (
   inputs: ModelInputs,
-): { readonly lambda: number; readonly cvRmse: number; readonly folds: number } => {
+): {
+  readonly lambda: number;
+  readonly cvRmse: number;
+  readonly folds: number;
+} => {
   const folds = expandingWindowFolds(
     inputs.outcomes.length,
     MINIMUM_TRAINING_PERIODS,
@@ -290,7 +343,10 @@ const channelContributions = (
   });
 };
 
-const quantile = (values: ReadonlyArray<number>, probability: number): number => {
+const quantile = (
+  values: ReadonlyArray<number>,
+  probability: number,
+): number => {
   if (values.length === 0) {
     throw new Error("quantile requires values");
   }
@@ -331,8 +387,7 @@ const bootstrapIntervals = (
       seed + replication * 104_729,
     );
     const bootOutcome = fitted.map(
-      (value, index) =>
-        value + (residuals[sampledIndices[index] ?? 0] ?? 0),
+      (value, index) => value + (residuals[sampledIndices[index] ?? 0] ?? 0),
     );
     const fit = fitRidge(design, bootOutcome, lambda, [0]);
     const contributions = channelContributions(
@@ -345,10 +400,13 @@ const bootstrapIntervals = (
     }
   }
 
-  return channelRecord((channel) => [
-    quantile(draws[channel], 0.025),
-    quantile(draws[channel], 0.975),
-  ] as const);
+  return channelRecord(
+    (channel) =>
+      [
+        quantile(draws[channel], 0.025),
+        quantile(draws[channel], 0.975),
+      ] as const,
+  );
 };
 
 export const estimateMmmLite = (
@@ -357,10 +415,7 @@ export const estimateMmmLite = (
 ): MmmLiteResult => {
   const periods = data.weekly.length;
   const bootstrapReplications = options.bootstrapReplications ?? 80;
-  if (
-    !Number.isInteger(bootstrapReplications) ||
-    bootstrapReplications < 0
-  ) {
+  if (!Number.isInteger(bootstrapReplications) || bootstrapReplications < 0) {
     throw new Error("bootstrap replications must be a non-negative integer");
   }
   if (periods < MINIMUM_PERIODS) {
@@ -394,18 +449,17 @@ export const estimateMmmLite = (
   try {
     const inputs = buildInputs(data);
     const selection = selectLambda(inputs);
-    const allIndices = Array.from({ length: periods }, (_unused, index) => index);
+    const allIndices = Array.from(
+      { length: periods },
+      (_unused, index) => index,
+    );
     const scaler = fitScaler(inputs.rawDesign, allIndices);
     const standardized = applyScaler(inputs.rawDesign, scaler);
     const standardizedCounterfactuals = channelRecord((channel) =>
       applyScaler(inputs.counterfactualDesigns[channel], scaler),
     );
-    const fit = fitRidge(
-      standardized,
-      inputs.outcomes,
-      selection.lambda,
-      [0],
-    );
+    const fit = fitRidge(standardized, inputs.outcomes, selection.lambda, [0]);
+    const mediaIdentification = mediaIdentificationDiagnostics(inputs);
     const channelOffIncremental = channelContributions(
       standardized,
       standardizedCounterfactuals,
@@ -428,13 +482,14 @@ export const estimateMmmLite = (
     }
 
     const flags: MmmLiteAssumptionFlag[] = [];
-    if (maxMediaCorrelation > 0.8) {
+    if (
+      CHANNELS.some(
+        (channel) => mediaIdentification[channel].residualVariationShare < 0.2,
+      )
+    ) {
       flags.push("high_media_collinearity");
     }
-    if (
-      selection.lambda === RIDGE_GRID[0] ||
-      selection.lambda === RIDGE_GRID[RIDGE_GRID.length - 1]
-    ) {
+    if (selection.lambda === RIDGE_GRID[RIDGE_GRID.length - 1]) {
       flags.push("regularization_boundary");
     }
 
@@ -462,11 +517,13 @@ export const estimateMmmLite = (
         folds: selection.folds,
         cvRmse: selection.cvRmse,
         maxMediaCorrelation,
+        mediaIdentification,
         bootstrapReplications,
       },
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown model error";
+    const message =
+      error instanceof Error ? error.message : "unknown model error";
     return invalidResult(`MMM-lite could not fit: ${message}`, periods);
   }
 };
