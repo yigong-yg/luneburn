@@ -163,7 +163,9 @@ describe("estimand lab interaction hardening", () => {
     const container = renderControls(serializedHash, async (value) => {
       copied.push(value);
     });
-    const copyButton = container.querySelector("button.col-span-2");
+    const copyButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Copy this state",
+    );
     if (!copyButton) throw new Error("copy button not found");
 
     await act(async () => {
@@ -275,7 +277,9 @@ describe("estimand lab interaction hardening", () => {
         throw new Error("clipboard unavailable");
       },
     );
-    const copyButton = container.querySelector("button.col-span-2");
+    const copyButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Copy this state",
+    );
     if (!copyButton) throw new Error("copy button not found");
     await act(async () => {
       copyButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
