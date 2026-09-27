@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { AssumptionStressPanel } from "./components/controls/AssumptionStressPanel";
 import { Header } from "./components/layout/Header";
+import { LabFooter } from "./components/layout/LabFooter";
 import { CurrentRead } from "./components/narrative/CurrentRead";
 import { MethodCard } from "./components/narrative/MethodCard";
 import { MethodologyProofStrip } from "./components/narrative/MethodologyProofStrip";
@@ -20,10 +22,12 @@ import { estimatorById } from "./lib/methods";
 import type { EstimationResult } from "./lib/methods/types";
 import { instrumentPalette } from "./lib/visual/palette";
 import { useDataset } from "./hooks/useDataset";
+import { useEstimateTrail } from "./hooks/useEstimateTrail";
 import { useEstimations } from "./hooks/useEstimations";
 import { useReferenceEstimations } from "./hooks/useReferenceEstimations";
 import { useReplay } from "./hooks/useReplay";
 import { useSeedBand } from "./hooks/useSeedBand";
+import { EstimandLabPage } from "./pages/EstimandLabPage";
 import { useAppStore } from "./state/store";
 
 const SCENARIO_ID = "super-bowl";
@@ -39,7 +43,7 @@ const biasLabel = (result: EstimationResult, tau: number): string | null =>
     ? null
     : `${signedPctInt(biasVsTruth(result.pointEstimate, tau))} vs truth`;
 
-export const App = (): JSX.Element => {
+const AssumptionLabPage = (): JSX.Element => {
   const params = useAppStore((state) => state.dgpParams);
   const seed = useAppStore((state) => state.seed);
   const setParam = useAppStore((state) => state.setParam);
@@ -55,6 +59,10 @@ export const App = (): JSX.Element => {
   const lastTouch = results.find((r) => r.methodId === "last-touch");
   const did = results.find((r) => r.methodId === "did-twfe");
   const tau = dataset.groundTruth.comparisonEstimand;
+  const trail = useEstimateTrail({
+    lastTouch: lastTouch?.pointEstimate ?? null,
+    did: did?.pointEstimate ?? null,
+  });
 
   if (!lastTouch || !did) {
     return (
@@ -131,29 +139,36 @@ export const App = (): JSX.Element => {
         <Header seed={seed} />
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <EstimateRail tau={tau} lanes={lanes} domain={domain} ticks={ticks} />
-          <AssumptionStressPanel
-            paramSchema={dgp.paramSchema}
-            params={params}
-            isReplaying={isReplaying}
-            onParamChange={setParam}
-            onReset={reset}
-            onReplay={replay}
-            onToReference={toReference}
-          />
-        </div>
-
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <CurrentRead
-            rho={params.crossChannelCorrelation}
-            tau={tau}
-            lastTouch={lastTouch}
-            did={did}
-          />
-          <AxisProblemPanel
-            perPeriodEffect={dataset.groundTruth.perPeriodEffect}
-            tau={tau}
-          />
+          <div className="flex flex-col gap-5">
+            <EstimateRail
+              tau={tau}
+              lanes={lanes}
+              domain={domain}
+              ticks={ticks}
+              trail={trail}
+            />
+            <CurrentRead
+              rho={params.crossChannelCorrelation}
+              tau={tau}
+              lastTouch={lastTouch}
+              did={did}
+            />
+          </div>
+          <div className="flex flex-col gap-5">
+            <AssumptionStressPanel
+              paramSchema={dgp.paramSchema}
+              params={params}
+              isReplaying={isReplaying}
+              onParamChange={setParam}
+              onReset={reset}
+              onReplay={replay}
+              onToReference={toReference}
+            />
+            <AxisProblemPanel
+              perPeriodEffect={dataset.groundTruth.perPeriodEffect}
+              tau={tau}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -192,7 +207,42 @@ export const App = (): JSX.Element => {
               : null
           }
         />
+        <p className="text-sm text-lunar-muted">
+          Next: the same campaign, but the question itself changes -{" "}
+          <a
+            href="#/estimands"
+            aria-label="Next: Estimand contracts"
+            className="font-semibold text-lunar-primary underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lunar-primary"
+          >
+            Estimand contracts →
+          </a>
+        </p>
+        <LabFooter route="assumptions" />
       </div>
     </main>
   );
+};
+
+const routeFromHash = (): "assumptions" | "estimands" =>
+  window.location.hash.startsWith("#/estimands")
+    ? "estimands"
+    : "assumptions";
+
+export const App = (): JSX.Element => {
+  const [route, setRoute] = useState(routeFromHash);
+
+  useEffect(() => {
+    document.title = `Luneburn · ${
+      route === "estimands" ? "Estimand contracts" : "Assumption stress"
+    }`;
+    window.scrollTo(0, 0);
+  }, [route]);
+
+  useEffect(() => {
+    const updateRoute = (): void => setRoute(routeFromHash());
+    window.addEventListener("hashchange", updateRoute);
+    return () => window.removeEventListener("hashchange", updateRoute);
+  }, []);
+
+  return route === "estimands" ? <EstimandLabPage /> : <AssumptionLabPage />;
 };
